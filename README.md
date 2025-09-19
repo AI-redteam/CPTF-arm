@@ -61,15 +61,82 @@ chmod +x CPTF-ARM.sh
 sudo ./CPTF-ARM.sh
 ```
 
-### Docker Installation (Alternative)
+## 🐳 Docker Installation (Recommended)
+
+The Docker installation provides a clean, isolated environment without modifying your host system.
+
+### Prerequisites
+- Docker Engine 20.10+ with ARM64 support
+- 8GB RAM recommended (4GB minimum)
+- 15GB free disk space
+
+### Quick Start
 
 ```bash
-# Build the Docker image
-docker build -t redcloud-arm .
+# Clone the repository
+git clone https://github.com/yourusername/cptf-arm.git
+cd cptf-arm
+
+# Build the image
+docker build -t cptf-arm .
 
 # Run the container
-docker run -it --name redcloud redcloud-arm /bin/bash
+docker run -it --name cptf cptf-arm
 ```
+
+### Using Docker Compose
+
+```bash
+# Start with docker-compose
+docker-compose up -d
+
+# Access the container
+docker exec -it cptf-arm bash
+
+# Stop and remove
+docker-compose down
+```
+
+### Mounting Cloud Credentials
+
+```bash
+# Run with persistent credentials
+docker run -it \
+  -v ~/.aws:/root/.aws:ro \
+  -v ~/.azure:/root/.azure:ro \
+  -v ~/gcp-creds:/root/gcp:ro \
+  -v ~/cptf-data:/data \
+  cptf-arm
+```
+
+### Environment Variables
+
+Create a `.env` file for docker-compose:
+```bash
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+AZURE_CLIENT_ID=your_client_id
+AZURE_TENANT_ID=your_tenant_id
+```
+
+### Useful Commands
+
+```bash
+# Run specific tool
+docker exec -it cptf-arm pacu
+
+# Update container
+docker pull cptf-arm:latest
+docker-compose restart
+
+# View logs
+docker logs cptf-arm
+
+# Clean up
+docker-compose down -v
+```
+
+The Docker method provides isolation, easy cleanup, and consistent environments across different systems. All tools are pre-installed and configured in `/opt/{aws,azure,gcp,multi-cloud}/`.
 
 ## 🛠️ Tools
 
