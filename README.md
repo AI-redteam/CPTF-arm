@@ -51,7 +51,7 @@ RedCloud OS ARM Edition is a comprehensive setup script that brings the powerful
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/redcloud-os-arm.git
+git clone https://github.com/ai-redteam/redcloud-os-arm.git
 cd redcloud-os-arm
 
 # Make the script executable
