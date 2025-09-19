@@ -74,7 +74,7 @@ The Docker installation provides a clean, isolated environment without modifying
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/cptf-arm.git
+git clone https://github.com/ai-redteam/cptf-arm.git
 cd cptf-arm
 
 # Build the image
