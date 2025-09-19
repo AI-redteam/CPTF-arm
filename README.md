@@ -51,14 +51,14 @@ CPTF ARM Edition is a comprehensive setup script that brings a powerful cloud pe
 
 ```bash
 # Clone the repository
-git clone https://github.com/ai-redteam/redcloud-os-arm.git
-cd redcloud-os-arm
+git clone https://github.com/ai-redteam/CPTF-cloud-pentest-vm-setup-script.git
+cd CPTF-cloud-pentest-vm-setup-script
 
 # Make the script executable
-chmod +x redcloud-arm-setup.sh
+chmod +x CPTF-ARM.sh
 
 # Run the installation
-sudo ./redcloud-arm-setup.sh
+sudo ./CPTF-ARM.sh
 ```
 
 ### Docker Installation (Alternative)
