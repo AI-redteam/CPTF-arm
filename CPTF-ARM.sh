@@ -75,15 +75,13 @@ install_base_deps() {
         python3 \
         python3-pip \
         python3-venv \
-        python3-virtualenv \
+        python3-dev \
         pipx \
         nodejs \
         npm \
         golang \
         ruby \
         ruby-dev \
-        docker.io \
-        docker-compose \
         jq \
         unzip \
         zip \
@@ -94,69 +92,25 @@ install_base_deps() {
         lsb-release \
         libssl-dev \
         libffi-dev \
-        python3-dev \
         openjdk-11-jdk \
-        terminator \
         vim \
         nano
     
+    # Ensure pipx is in PATH
+    export PATH="$PATH:/root/.local/bin"
+    
     # Install PowerShell Core for ARM
     log_info "Installing PowerShell Core for ARM..."
-    # Download and install PowerShell for ARM64
-    wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.0/powershell-7.4.0-linux-arm64.tar.gz
-    mkdir -p /opt/microsoft/powershell/7
-    tar zxf powershell-7.4.0-linux-arm64.tar.gz -C /opt/microsoft/powershell/7
-    chmod +x /opt/microsoft/powershell/7/pwsh
-    ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
-    rm powershell-7.4.0-linux-arm64.tar.gz
+    if ! command -v pwsh &> /dev/null; then
+        wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.0/powershell-7.4.0-linux-arm64.tar.gz
+        mkdir -p /opt/microsoft/powershell/7
+        tar zxf powershell-7.4.0-linux-arm64.tar.gz -C /opt/microsoft/powershell/7
+        chmod +x /opt/microsoft/powershell/7/pwsh
+        ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+        rm powershell-7.4.0-linux-arm64.tar.gz
+    fi
     
     log_success "Base dependencies installed"
-}
-
-# Helper function to install Python tools with virtual environment
-install_python_tool() {
-    local tool_path="$1"
-    local tool_name="$2"
-    local requirements_file="${3:-requirements.txt}"
-    
-    log_info "Setting up Python virtual environment for $tool_name..."
-    
-    cd "$tool_path"
-    
-    # Create virtual environment if it doesn't exist
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
-    fi
-    
-    # Activate venv and install requirements
-    source venv/bin/activate
-    pip install --upgrade pip setuptools wheel
-    
-    if [ -f "$requirements_file" ]; then
-        pip install -r "$requirements_file" || {
-            log_warning "Some dependencies for $tool_name failed to install, continuing..."
-        }
-    fi
-    
-    # If setup.py exists, install the tool itself
-    if [ -f "setup.py" ]; then
-        pip install -e . || {
-            log_warning "Setup.py installation for $tool_name failed, continuing..."
-        }
-    fi
-    
-    deactivate
-    
-    # Create a wrapper script for the tool
-    local tool_wrapper="/usr/local/bin/${tool_name,,}"
-    cat > "$tool_wrapper" << EOF
-#!/bin/bash
-cd $tool_path
-source venv/bin/activate
-python3 \$@
-deactivate
-EOF
-    chmod +x "$tool_wrapper"
 }
 
 # Create directory structure
@@ -164,7 +118,54 @@ create_directories() {
     log_info "Creating directory structure..."
     mkdir -p /opt/{aws,azure,gcp,multi-cloud}/{enumeration,exploitation,post-exploitation}
     mkdir -p /usr/local/bin
+    mkdir -p /root/.cptf/bin
     log_success "Directory structure created"
+}
+
+# Install Python package in venv
+install_python_package() {
+    local REPO_URL="$1"
+    local INSTALL_PATH="$2"
+    local TOOL_NAME="$3"
+    
+    log_info "Installing $TOOL_NAME..."
+    
+    # Clone if URL provided
+    if [ -n "$REPO_URL" ]; then
+        if [ -d "$INSTALL_PATH" ]; then
+            log_warning "$TOOL_NAME already exists, skipping clone..."
+        else
+            git clone "$REPO_URL" "$INSTALL_PATH" || {
+                log_error "Failed to clone $TOOL_NAME"
+                return 1
+            }
+        fi
+    fi
+    
+    cd "$INSTALL_PATH" || return 1
+    
+    # Create virtual environment
+    log_info "Creating virtual environment for $TOOL_NAME..."
+    python3 -m venv venv
+    
+    # Activate and install
+    source venv/bin/activate
+    pip install --upgrade pip setuptools wheel
+    
+    # Install requirements if they exist
+    if [ -f "requirements.txt" ]; then
+        log_info "Installing requirements for $TOOL_NAME..."
+        pip install -r requirements.txt || log_warning "Some requirements failed for $TOOL_NAME"
+    fi
+    
+    # Install package if setup.py exists
+    if [ -f "setup.py" ]; then
+        pip install -e . || log_warning "Setup.py installation failed for $TOOL_NAME"
+    fi
+    
+    deactivate
+    
+    log_success "$TOOL_NAME installed"
 }
 
 #########################################
@@ -176,78 +177,42 @@ install_aws_tools() {
     
     # AWS CLI v2 for ARM
     log_info "Installing AWS CLI v2..."
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
-    unzip -q awscliv2.zip
-    ./aws/install
-    rm -rf awscliv2.zip aws/
+    if ! command -v aws &> /dev/null; then
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
+        unzip -q awscliv2.zip
+        ./aws/install
+        rm -rf awscliv2.zip aws/
+    fi
     
-    # AWS Consoler
-    log_info "Installing AWS Consoler..."
-    cd /opt/aws/exploitation
-    git clone https://github.com/NetSPI/aws_consoler.git
-    install_python_tool "/opt/aws/exploitation/aws_consoler" "aws_consoler"
+    # Install Python-based AWS tools
+    install_python_package "https://github.com/NetSPI/aws_consoler.git" \
+        "/opt/aws/exploitation/aws_consoler" "AWS Consoler"
     
-    # AWS Escalate
-    log_info "Installing AWS Escalate..."
-    cd /opt/aws/post-exploitation
-    wget https://raw.githubusercontent.com/RhinoSecurityLabs/Security-Research/master/tools/aws-pentest-tools/aws_escalate.py
-    chmod +x aws_escalate.py
+    install_python_package "https://github.com/prevade/cloudjack.git" \
+        "/opt/aws/exploitation/cloudjack" "CloudJack"
     
-    # CloudCopy
-    log_info "Installing CloudCopy..."
-    cd /opt/aws/exploitation
-    git clone https://github.com/Static-Flow/CloudCopy.git
+    install_python_package "https://github.com/duo-labs/cloudmapper.git" \
+        "/opt/aws/enumeration/cloudmapper" "CloudMapper"
     
-    # CloudJack
-    log_info "Installing CloudJack..."
-    cd /opt/aws/exploitation
-    git clone https://github.com/prevade/cloudjack.git
-    install_python_tool "/opt/aws/exploitation/cloudjack" "cloudjack"
+    install_python_package "https://github.com/ustayready/CredKing.git" \
+        "/opt/aws/exploitation/CredKing" "CredKing"
     
-    # CloudMapper
-    log_info "Installing CloudMapper..."
-    cd /opt/aws/enumeration
-    git clone https://github.com/duo-labs/cloudmapper.git
-    install_python_tool "/opt/aws/enumeration/cloudmapper" "cloudmapper"
+    install_python_package "https://github.com/RhinoSecurityLabs/pacu.git" \
+        "/opt/aws/exploitation/pacu" "Pacu"
     
-    # CredKing
-    log_info "Installing CredKing..."
-    cd /opt/aws/exploitation
-    git clone https://github.com/ustayready/CredKing.git
-    install_python_tool "/opt/aws/exploitation/CredKing" "credking"
+    install_python_package "https://github.com/carnal0wnage/weirdAAL.git" \
+        "/opt/aws/enumeration/weirdAAL" "weirdAAL"
     
-    # Endgame
-    log_info "Installing Endgame..."
-    cd /opt/aws/post-exploitation
-    git clone https://github.com/hoodoer/endgame.git
-    install_python_tool "/opt/aws/post-exploitation/endgame" "endgame"
+    # Download standalone scripts
+    log_info "Downloading AWS Escalate..."
+    wget -q https://raw.githubusercontent.com/RhinoSecurityLabs/Security-Research/master/tools/aws-pentest-tools/aws_escalate.py \
+        -O /opt/aws/post-exploitation/aws_escalate.py
+    chmod +x /opt/aws/post-exploitation/aws_escalate.py
     
-    # Pacu
-    log_info "Installing Pacu..."
-    cd /opt/aws/exploitation
-    git clone https://github.com/RhinoSecurityLabs/pacu.git
-    install_python_tool "/opt/aws/exploitation/pacu" "pacu"
-    
-    # Create Pacu launcher
-    cat > /usr/local/bin/pacu << 'EOF'
-#!/bin/bash
-cd /opt/aws/exploitation/pacu
-source venv/bin/activate
-python3 pacu.py "$@"
-deactivate
-EOF
-    chmod +x /usr/local/bin/pacu
-    
-    # Redboto
-    log_info "Installing Redboto..."
-    cd /opt/aws/exploitation
-    git clone https://github.com/ihamburglar/Redboto.git
-    
-    # weirdAAL
-    log_info "Installing weirdAAL..."
-    cd /opt/aws/enumeration
-    git clone https://github.com/carnal0wnage/weirdAAL.git
-    install_python_tool "/opt/aws/enumeration/weirdAAL" "weirdaal"
+    # Clone non-Python tools
+    git clone https://github.com/Static-Flow/CloudCopy.git /opt/aws/exploitation/CloudCopy 2>/dev/null || true
+    git clone https://github.com/hoodoer/endgame.git /opt/aws/post-exploitation/endgame 2>/dev/null || true
+    git clone https://github.com/ihamburglar/Redboto.git /opt/aws/exploitation/Redboto 2>/dev/null || true
     
     log_success "AWS tools installed"
 }
@@ -261,93 +226,31 @@ install_azure_tools() {
     
     # Azure CLI
     log_info "Installing Azure CLI..."
-    curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-    
-    # AADCookieSpoof
-    log_info "Installing AADCookieSpoof..."
-    cd /opt/azure/exploitation
-    git clone https://github.com/jsa2/aadcookiespoof.git
-    
-    # AADInternals (PowerShell module)
-    log_info "Installing AADInternals..."
-    pwsh -Command "Install-Module -Name AADInternals -Force -AllowClobber"
-    
-    # AzureAD PowerShell module
-    log_info "Installing AzureAD PowerShell module..."
-    pwsh -Command "Install-Module -Name AzureAD -Force -AllowClobber"
-    
-    # AzureHound
-    log_info "Installing AzureHound..."
-    cd /opt/azure/enumeration
-    git clone https://github.com/BloodHoundAD/AzureHound.git
-    cd AzureHound
-    go build .
-    
-    # BloodHound
-    log_info "Installing BloodHound..."
-    cd /opt/azure/enumeration
-    wget https://github.com/BloodHoundAD/BloodHound/releases/latest/download/BloodHound-linux-arm64.zip -O BloodHound.zip || {
-        log_warning "ARM64 BloodHound not available, will need manual installation"
-    }
-    if [ -f BloodHound.zip ]; then
-        unzip -q BloodHound.zip
-        rm BloodHound.zip
+    if ! command -v az &> /dev/null; then
+        curl -sL https://aka.ms/InstallAzureCLIDeb | bash
     fi
     
-    # DCToolbox
-    log_info "Installing DCToolbox..."
-    pwsh -Command "Install-Module -Name DCToolbox -Force -AllowClobber"
-    
-    # MFASweep
-    log_info "Installing MFASweep..."
-    cd /opt/azure/exploitation
-    git clone https://github.com/dafthack/MFASweep.git
-    
-    # MicroBurst
-    log_info "Installing MicroBurst..."
-    cd /opt/azure/exploitation
-    git clone https://github.com/NetSPI/MicroBurst.git
-    
-    # Microsoft365 devicePhish
-    log_info "Installing Microsoft365 devicePhish..."
-    cd /opt/azure/exploitation
-    git clone https://github.com/optiv/Microsoft365_devicePhish.git
-    if [ -d "Microsoft365_devicePhish/Python" ]; then
-        install_python_tool "/opt/azure/exploitation/Microsoft365_devicePhish/Python" "devicephish"
+    # PowerShell modules
+    if command -v pwsh &> /dev/null; then
+        log_info "Installing Azure PowerShell modules..."
+        pwsh -Command "Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted"
+        pwsh -Command "Install-Module -Name Az -Force -AllowClobber -Scope AllUsers" || true
+        pwsh -Command "Install-Module -Name AzureAD -Force -AllowClobber -Scope AllUsers" || true
+        pwsh -Command "Install-Module -Name AADInternals -Force -AllowClobber -Scope AllUsers" || true
+        pwsh -Command "Install-Module -Name DCToolbox -Force -AllowClobber -Scope AllUsers" || true
     fi
     
-    # MS Graph PowerShell
-    log_info "Installing MS Graph PowerShell..."
-    pwsh -Command "Install-Module -Name Microsoft.Graph -Force -AllowClobber"
+    # Clone Azure tools
+    git clone https://github.com/jsa2/aadcookiespoof.git /opt/azure/exploitation/aadcookiespoof 2>/dev/null || true
+    git clone https://github.com/BloodHoundAD/AzureHound.git /opt/azure/enumeration/AzureHound 2>/dev/null || true
+    git clone https://github.com/dafthack/MFASweep.git /opt/azure/exploitation/MFASweep 2>/dev/null || true
+    git clone https://github.com/NetSPI/MicroBurst.git /opt/azure/exploitation/MicroBurst 2>/dev/null || true
+    git clone https://github.com/NetSPI/PowerUpSQL.git /opt/azure/post-exploitation/PowerUpSQL 2>/dev/null || true
+    git clone https://github.com/rvrsh3ll/TokenTactics.git /opt/azure/exploitation/TokenTactics 2>/dev/null || true
     
-    # PowerUpSQL
-    log_info "Installing PowerUpSQL..."
-    cd /opt/azure/post-exploitation
-    git clone https://github.com/NetSPI/PowerUpSQL.git
-    
-    # ROADtools
-    log_info "Installing ROADtools..."
-    cd /opt/azure/enumeration
-    git clone https://github.com/dirkjanm/ROADtools.git
-    install_python_tool "/opt/azure/enumeration/ROADtools" "roadtools"
-    
-    # TeamFiltration
-    log_info "Installing TeamFiltration..."
-    cd /opt/azure/exploitation
-    # TeamFiltration requires .NET, downloading pre-built if available
-    wget https://github.com/Flangvik/TeamFiltration/releases/latest/download/TeamFiltration_Linux_ARM64.zip -O TeamFiltration.zip || {
-        log_warning "ARM64 TeamFiltration not available, building from source..."
-        git clone https://github.com/Flangvik/TeamFiltration.git
-    }
-    if [ -f TeamFiltration.zip ]; then
-        unzip -q TeamFiltration.zip
-        rm TeamFiltration.zip
-    fi
-    
-    # TokenTactics
-    log_info "Installing TokenTactics..."
-    cd /opt/azure/exploitation
-    git clone https://github.com/rvrsh3ll/TokenTactics.git
+    # Install ROADtools
+    install_python_package "https://github.com/dirkjanm/ROADtools.git" \
+        "/opt/azure/enumeration/ROADtools" "ROADtools"
     
     log_success "Azure tools installed"
 }
@@ -361,59 +264,25 @@ install_gcp_tools() {
     
     # Google Cloud SDK
     log_info "Installing Google Cloud SDK..."
-    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-    apt-get update && apt-get install -y google-cloud-cli
+    if ! command -v gcloud &> /dev/null; then
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | \
+            tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+        curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | \
+            apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+        apt-get update && apt-get install -y google-cloud-cli
+    fi
     
-    # GCPBucketBrute
-    log_info "Installing GCPBucketBrute..."
-    cd /opt/gcp/enumeration
-    git clone https://github.com/RhinoSecurityLabs/GCPBucketBrute.git
-    install_python_tool "/opt/gcp/enumeration/GCPBucketBrute" "gcpbucketbrute"
+    # Install Python GCP tools
+    install_python_package "https://github.com/RhinoSecurityLabs/GCPBucketBrute.git" \
+        "/opt/gcp/enumeration/GCPBucketBrute" "GCPBucketBrute"
     
-    # GCP Delegation
-    log_info "Installing GCP Delegation..."
-    cd /opt/gcp/exploitation
-    git clone https://gitlab.com/gitlab-com/gl-security/threatmanagement/redteam/redteam-public/gcp_misc.git
-    
-    # GCP Enum
-    log_info "Installing GCP Enum..."
-    cd /opt/gcp/enumeration
-    git clone https://gitlab.com/gitlab-com/gl-security/threatmanagement/redteam/redteam-public/gcp_enum.git
-    
-    # GCP Firewall Enum
-    log_info "Installing GCP Firewall Enum..."
-    cd /opt/gcp/enumeration
-    git clone https://gitlab.com/gitlab-com/gl-security/threatmanagement/redteam/redteam-public/gcp_firewall_enum.git
-    
-    # GCP IAM Collector
-    log_info "Installing GCP IAM Collector..."
-    cd /opt/gcp/enumeration
-    git clone https://github.com/marcin-kolda/gcp-iam-collector.git
-    cd gcp-iam-collector
-    go build .
-    
-    # GCP IAM Privilege Escalation
-    log_info "Installing GCP IAM Privilege Escalation..."
-    cd /opt/gcp/post-exploitation
-    git clone https://github.com/RhinoSecurityLabs/GCP-IAM-Privilege-Escalation.git
-    
-    # GCPTokenReuse
-    log_info "Installing GCPTokenReuse..."
-    cd /opt/gcp/exploitation
-    git clone https://github.com/RedTeamOperations/GCPTokenReuse.git
-    
-    # GoogleWorkspaceDirectoryDump
-    log_info "Installing GoogleWorkspaceDirectoryDump..."
-    cd /opt/gcp/enumeration
-    git clone https://github.com/RedTeamOperations/GoogleWorkspaceDirectoryDump.git
-    
-    # Hayat
-    log_info "Installing Hayat..."
-    cd /opt/gcp/enumeration
-    git clone https://github.com/DenizParlak/hayat.git
-    cd hayat
-    go build .
+    # Clone other GCP tools
+    git clone https://github.com/RhinoSecurityLabs/GCP-IAM-Privilege-Escalation.git \
+        /opt/gcp/post-exploitation/GCP-IAM-Privilege-Escalation 2>/dev/null || true
+    git clone https://github.com/RedTeamOperations/GCPTokenReuse.git \
+        /opt/gcp/exploitation/GCPTokenReuse 2>/dev/null || true
+    git clone https://github.com/RedTeamOperations/GoogleWorkspaceDirectoryDump.git \
+        /opt/gcp/enumeration/GoogleWorkspaceDirectoryDump 2>/dev/null || true
     
     log_success "GCP tools installed"
 }
@@ -425,101 +294,67 @@ install_gcp_tools() {
 install_multicloud_tools() {
     log_info "Installing Multi-Cloud tools..."
     
-    # Cartography
-    log_info "Installing Cartography..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/lyft/cartography.git
-    install_python_tool "/opt/multi-cloud/enumeration/cartography" "cartography"
+    # Install Python-based multi-cloud tools
+    install_python_package "https://github.com/lyft/cartography.git" \
+        "/opt/multi-cloud/enumeration/cartography" "Cartography"
     
-    # CCAT
-    log_info "Installing CCAT..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/RhinoSecurityLabs/ccat.git
-    install_python_tool "/opt/multi-cloud/exploitation/ccat" "ccat"
+    install_python_package "https://github.com/RhinoSecurityLabs/ccat.git" \
+        "/opt/multi-cloud/exploitation/ccat" "CCAT"
     
-    # CloudBrute
-    log_info "Installing CloudBrute..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/0xsha/CloudBrute.git
-    cd CloudBrute
-    go build -o cloudbrute .
+    install_python_package "https://github.com/initstring/cloud_enum.git" \
+        "/opt/multi-cloud/enumeration/cloud_enum" "CloudEnum"
     
-    # CloudEnum
-    log_info "Installing CloudEnum..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/initstring/cloud_enum.git
-    install_python_tool "/opt/multi-cloud/enumeration/cloud_enum" "cloudenum"
+    install_python_package "https://github.com/fortra/impacket.git" \
+        "/opt/multi-cloud/exploitation/impacket" "Impacket"
     
-    # Cloud Service Enum
-    log_info "Installing Cloud Service Enum..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/NotSoSecure/cloud-service-enum.git
+    install_python_package "https://github.com/nccgroup/ScoutSuite.git" \
+        "/opt/multi-cloud/enumeration/ScoutSuite" "ScoutSuite"
     
-    # Evilginx2
-    log_info "Installing Evilginx2..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/kgretzky/evilginx2.git
-    cd evilginx2
-    go build .
+    install_python_package "https://github.com/carlospolop/PurplePanda.git" \
+        "/opt/multi-cloud/enumeration/PurplePanda" "PurplePanda"
     
-    # Gitleaks
-    log_info "Installing Gitleaks..."
-    cd /opt/multi-cloud/enumeration
-    wget https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_*_linux_arm64.tar.gz -O gitleaks.tar.gz || {
-        log_warning "ARM64 Gitleaks not found, building from source..."
-        git clone https://github.com/gitleaks/gitleaks.git
-        cd gitleaks
-        go build .
-    }
-    if [ -f gitleaks.tar.gz ]; then
-        tar -xzf gitleaks.tar.gz
-        rm gitleaks.tar.gz
+    # Clone non-Python tools
+    git clone https://github.com/0xsha/CloudBrute.git /opt/multi-cloud/enumeration/CloudBrute 2>/dev/null || true
+    git clone https://github.com/NotSoSecure/cloud-service-enum.git /opt/multi-cloud/enumeration/cloud-service-enum 2>/dev/null || true
+    git clone https://github.com/kgretzky/evilginx2.git /opt/multi-cloud/exploitation/evilginx2 2>/dev/null || true
+    git clone https://github.com/lgandx/Responder.git /opt/multi-cloud/exploitation/Responder 2>/dev/null || true
+    git clone https://github.com/cyberark/SkyArk.git /opt/multi-cloud/enumeration/SkyArk 2>/dev/null || true
+    git clone https://github.com/htr-tech/zphisher.git /opt/multi-cloud/exploitation/zphisher 2>/dev/null || true
+    
+    # Build Go tools if Go is available
+    if command -v go &> /dev/null; then
+        # Build CloudBrute
+        if [ -d "/opt/multi-cloud/enumeration/CloudBrute" ]; then
+            cd /opt/multi-cloud/enumeration/CloudBrute
+            go build -o cloudbrute . 2>/dev/null || true
+        fi
+        
+        # Build evilginx2
+        if [ -d "/opt/multi-cloud/exploitation/evilginx2" ]; then
+            cd /opt/multi-cloud/exploitation/evilginx2
+            go build . 2>/dev/null || true
+        fi
     fi
     
-    # Impacket
-    log_info "Installing Impacket..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/fortra/impacket.git
-    install_python_tool "/opt/multi-cloud/exploitation/impacket" "impacket"
+    log_success "Multi-Cloud tools installed"
+}
+
+#########################################
+# Create launcher scripts
+#########################################
+
+create_launchers() {
+    log_info "Creating launcher scripts..."
     
-    # Leonidas
-    log_info "Installing Leonidas..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/WithSecureLabs/leonidas.git
-    if [ -f "leonidas/requirements.txt" ]; then
-        install_python_tool "/opt/multi-cloud/exploitation/leonidas" "leonidas"
-    fi
-    
-    # Modlishka
-    log_info "Installing Modlishka..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/drk1wi/Modlishka.git
-    cd Modlishka
-    go build .
-    
-    # Mose
-    log_info "Installing Mose..."
-    cd /opt/multi-cloud/post-exploitation
-    git clone https://github.com/master-of-servers/mose.git
-    cd mose
-    go build .
-    
-    # PurplePanda
-    log_info "Installing PurplePanda..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/carlospolop/PurplePanda.git
-    install_python_tool "/opt/multi-cloud/enumeration/PurplePanda" "purplepanda"
-    
-    # Responder
-    log_info "Installing Responder..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/lgandx/Responder.git
-    
-    # ScoutSuite
-    log_info "Installing ScoutSuite..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/nccgroup/ScoutSuite.git
-    install_python_tool "/opt/multi-cloud/enumeration/ScoutSuite" "scoutsuite"
+    # Create Pacu launcher
+    cat > /usr/local/bin/pacu << 'EOF'
+#!/bin/bash
+cd /opt/aws/exploitation/pacu
+source venv/bin/activate
+python3 pacu.py "$@"
+deactivate
+EOF
+    chmod +x /usr/local/bin/pacu
     
     # Create ScoutSuite launcher
     cat > /usr/local/bin/scoutsuite << 'EOF'
@@ -531,153 +366,102 @@ deactivate
 EOF
     chmod +x /usr/local/bin/scoutsuite
     
-    # SkyArk
-    log_info "Installing SkyArk..."
-    cd /opt/multi-cloud/enumeration
-    git clone https://github.com/cyberark/SkyArk.git
-    
-    # Zphisher
-    log_info "Installing Zphisher..."
-    cd /opt/multi-cloud/exploitation
-    git clone https://github.com/htr-tech/zphisher.git
-    
-    log_success "Multi-Cloud tools installed"
-}
-
-#########################################
-# Create startup scripts
-#########################################
-
-create_startup_scripts() {
-    log_info "Creating startup scripts..."
-    
-    # Create a generic launcher for Python tools with venv
-    cat > /usr/local/bin/cptf-launch << 'EOF'
+    # Create CloudMapper launcher
+    cat > /usr/local/bin/cloudmapper << 'EOF'
 #!/bin/bash
-# CPTF Tool Launcher with Virtual Environment Support
-
-TOOL_PATH="$1"
+cd /opt/aws/enumeration/cloudmapper
+source venv/bin/activate
+python3 cloudmapper.py "$@"
+deactivate
+EOF
+    chmod +x /usr/local/bin/cloudmapper
+    
+    # Create generic launcher
+    cat > /usr/local/bin/cptf-tool << 'EOF'
+#!/bin/bash
+TOOL_DIR="$1"
 shift
-
-if [ -z "$TOOL_PATH" ] || [ ! -d "$TOOL_PATH" ]; then
-    echo "Error: Invalid tool path"
-    echo "Usage: cptf-launch <tool_path> [tool_arguments]"
-    exit 1
-fi
-
-cd "$TOOL_PATH" || exit 1
-
-# Check if virtual environment exists
-if [ -d "venv" ]; then
+if [ -d "$TOOL_DIR/venv" ]; then
+    cd "$TOOL_DIR"
     source venv/bin/activate
-    # Try to find and run the main script
-    if [ -f "*.py" ]; then
-        python3 *.py "$@"
-    else
-        python3 "$@"
-    fi
+    python3 "$@"
     deactivate
 else
-    # Run without venv (for non-Python tools)
-    if [ -f "*.sh" ]; then
-        bash *.sh "$@"
-    else
-        echo "Tool directory: $TOOL_PATH"
-        exec bash
-    fi
+    echo "No virtual environment found in $TOOL_DIR"
 fi
 EOF
+    chmod +x /usr/local/bin/cptf-tool
     
-    chmod +x /usr/local/bin/cptf-launch
-    
-    log_success "Startup scripts created"
+    log_success "Launcher scripts created"
 }
 
 #########################################
-# Setup aliases
+# Setup user environment
 #########################################
 
-setup_aliases() {
-    log_info "Setting up aliases..."
+setup_user_env() {
+    log_info "Setting up user environment..."
     
-    cat >> /etc/bash.bashrc << 'EOF'
-
+    # Get the actual user who ran sudo
+    ACTUAL_USER=${SUDO_USER:-root}
+    USER_HOME=$(eval echo ~$ACTUAL_USER)
+    
+    # Create aliases file
+    cat > "$USER_HOME/.cptf_aliases" << 'EOF'
 # CPTF-ARM Aliases
-alias c='clear'
-alias a='nano ~/.bash_aliases'
-alias s='source ~/.bash_aliases'
-alias v='python3 -m venv venv && source venv/bin/activate'
-alias d='deactivate'
-alias p='pip3 install -r requirements.txt'
-alias ll='ls -la'
-
-# Tool quick access
+alias cptf-help='echo "CPTF-ARM Tools:"; echo "  pacu - AWS exploitation"; echo "  scoutsuite - Multi-cloud auditing"; echo "  cloudmapper - AWS visualization"'
 alias aws-tools='ls -la /opt/aws/'
 alias azure-tools='ls -la /opt/azure/'
 alias gcp-tools='ls -la /opt/gcp/'
 alias multi-tools='ls -la /opt/multi-cloud/'
-
-# Quick launchers for common tools
-alias run-pacu='cd /opt/aws/exploitation/pacu && source venv/bin/activate && python3 pacu.py'
-alias run-scoutsuite='cd /opt/multi-cloud/enumeration/ScoutSuite && source venv/bin/activate && python3 scout.py'
+alias cptf-update='cd /tmp && wget -O cptf-update.sh https://raw.githubusercontent.com/yourusername/cptf-arm/main/cptf-arm-setup.sh && sudo bash cptf-update.sh'
 EOF
     
-    log_success "Aliases configured"
-}
-
-#########################################
-# Create environment variable templates
-#########################################
-
-create_env_templates() {
-    log_info "Creating environment variable templates..."
+    # Add to bashrc if not already there
+    if ! grep -q ".cptf_aliases" "$USER_HOME/.bashrc"; then
+        echo "" >> "$USER_HOME/.bashrc"
+        echo "# CPTF-ARM Configuration" >> "$USER_HOME/.bashrc"
+        echo "[ -f ~/.cptf_aliases ] && source ~/.cptf_aliases" >> "$USER_HOME/.bashrc"
+    fi
     
-    cat > /root/cloud-env-vars.sh << 'EOF'
+    # Create environment template
+    cat > "$USER_HOME/cloud-env.sh" << 'EOF'
 #!/bin/bash
-# Cloud Environment Variables Template
-# Source this file: source ~/cloud-env-vars.sh
+# Cloud Environment Variables for CPTF-ARM
 
 # AWS
-#export AWS_ACCESS_KEY_ID=<access_key_id>
-#export AWS_SECRET_ACCESS_KEY=<access_key>
-#export AWS_DEFAULT_REGION=<region>
+#export AWS_ACCESS_KEY_ID=
+#export AWS_SECRET_ACCESS_KEY=
+#export AWS_DEFAULT_REGION=us-east-1
 
 # Azure
-#export AZURE_CLIENT_ID=<app-id>
-#export AZURE_TENANT_ID=<tenant-id>
-#export AZURE_CLIENT_SECRET=<app-secret>
+#export AZURE_CLIENT_ID=
+#export AZURE_TENANT_ID=
+#export AZURE_CLIENT_SECRET=
 
 # GCP
-#export GOOGLE_APPLICATION_CREDENTIALS=<Service Account Json File Path>
+#export GOOGLE_APPLICATION_CREDENTIALS=
 
-echo "Cloud environment variables template loaded"
-echo "Edit this file to add your credentials: nano ~/cloud-env-vars.sh"
+echo "Cloud environment variables loaded (edit ~/cloud-env.sh to configure)"
 EOF
+    chmod +x "$USER_HOME/cloud-env.sh"
     
-    chmod +x /root/cloud-env-vars.sh
-    log_success "Environment templates created"
+    # Fix ownership
+    chown -R $ACTUAL_USER:$ACTUAL_USER "$USER_HOME/.cptf_aliases" "$USER_HOME/cloud-env.sh"
+    
+    log_success "User environment configured"
 }
 
 #########################################
-# Fix permissions
-#########################################
-
-fix_permissions() {
-    log_info "Fixing permissions..."
-    chmod -R 755 /opt/aws /opt/azure /opt/gcp /opt/multi-cloud
-    log_success "Permissions fixed"
-}
-
-#########################################
-# Main installation flow
+# Main installation
 #########################################
 
 main() {
     clear
     echo "================================================"
-    echo "     CPTF-ARM Setup Script"
+    echo "     CPTF-ARM Installation Script"
     echo "     Cloud Penetration Testing Framework"
-    echo "     For Apple Silicon & ARM64 Devices"
+    echo "     For ARM64 Devices"
     echo "================================================"
     echo ""
     
@@ -685,47 +469,48 @@ main() {
     check_architecture
     
     log_info "Starting CPTF-ARM installation..."
-    log_warning "Note: This script uses Python virtual environments to avoid system package conflicts"
+    log_info "This will take 15-30 minutes depending on your connection"
+    echo ""
     
     update_system
     install_base_deps
     create_directories
     
-    # Install tool categories
+    # Install tools
     install_aws_tools
     install_azure_tools
     install_gcp_tools
     install_multicloud_tools
     
     # Setup environment
-    create_startup_scripts
-    setup_aliases
-    create_env_templates
-    fix_permissions
+    create_launchers
+    setup_user_env
     
     echo ""
     echo "================================================"
-    log_success "CPTF-ARM installation completed!"
+    log_success "CPTF-ARM Installation Complete!"
     echo "================================================"
     echo ""
-    echo "Next steps:"
-    echo "1. Configure cloud credentials in ~/cloud-env-vars.sh"
-    echo "2. Source the file: source ~/cloud-env-vars.sh"
-    echo "3. Tools are installed in /opt/{aws,azure,gcp,multi-cloud}"
-    echo "4. Each Python tool has its own virtual environment"
-    echo "5. Use 'pacu' or 'scoutsuite' commands to launch tools"
-    echo "6. Restart your shell to use the new aliases"
+    echo "Installed Tools Location: /opt/{aws,azure,gcp,multi-cloud}/"
     echo ""
-    echo "Common commands:"
-    echo "  pacu              - Launch Pacu AWS exploitation framework"
-    echo "  scoutsuite        - Launch ScoutSuite multi-cloud auditor"
-    echo "  aws-tools         - List AWS tools"
-    echo "  azure-tools       - List Azure tools"
-    echo "  gcp-tools         - List GCP tools"
-    echo "  multi-tools       - List multi-cloud tools"
+    echo "Quick Start Commands:"
+    echo "  pacu         - Launch Pacu (AWS exploitation)"
+    echo "  scoutsuite   - Launch ScoutSuite (Multi-cloud auditing)"
+    echo "  cloudmapper  - Launch CloudMapper (AWS visualization)"
     echo ""
-    log_warning "Some tools may require additional configuration for ARM architecture"
-    log_warning "Check individual tool documentation for ARM-specific setup"
+    echo "List tools by provider:"
+    echo "  aws-tools    - List AWS tools"
+    echo "  azure-tools  - List Azure tools"
+    echo "  gcp-tools    - List GCP tools"
+    echo "  multi-tools  - List multi-cloud tools"
+    echo ""
+    echo "Next Steps:"
+    echo "1. Restart your terminal or run: source ~/.bashrc"
+    echo "2. Configure credentials: nano ~/cloud-env.sh"
+    echo "3. Load credentials: source ~/cloud-env.sh"
+    echo ""
+    log_warning "Note: Each Python tool has its own virtual environment in its directory"
+    log_info "For help, run: cptf-help"
 }
 
 # Run main function
