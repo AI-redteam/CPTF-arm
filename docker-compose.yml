@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  cptf:
+    image: cptf-arm:latest
+    container_name: cptf-arm
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    
+    # Capabilities for network tools
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_PTRACE
+    
+    # Security options
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    
+    # Network mode - use 'host' for full network access
+    # or 'bridge' for isolated network
+    network_mode: bridge
+    
+    # Interactive terminal
+    stdin_open: true
+    tty: true
+    
+    # Environment variables
+    environment:
+      # AWS Configuration
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      
+      # Azure Configuration
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID:-}
+      
+      # GCP Configuration
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/root/gcp/service-account.json}
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-}
+      
+      # Tool Configuration
+      - TERM=xterm-256color
+      - PYTHONUNBUFFERED=1
+    
+    # Volume mounts for persistence
+    volumes:
+      # Cloud provider credentials
+      - ~/.aws:/root/.aws:ro
+      - ~/.azure:/root/.azure:ro
+      - ./gcp-credentials:/root/gcp:ro
+      
+      # Tool data persistence
+      - cptf-data:/data
+      - cptf-logs:/var/log
+      
+      # Custom scripts and configurations
+      - ./custom-scripts:/opt/custom-scripts:ro
+      - ./wordlists:/opt/wordlists:ro
+      
+      # Docker socket for container manipulation (if needed)
+      # - /var/run/docker.sock:/var/run/docker.sock
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "echo", "healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    # Restart policy
+    restart: unless-stopped
+
+  # Optional: Separate database service for tools that need it
+  postgres:
+    image: postgres:15-alpine
+    container_name: cptf-db
+    environment:
+      - POSTGRES_USER=cptf
+      - POSTGRES_PASSWORD=cptf_pass
+      - POSTGRES_DB=cptf_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - cptf-net
+    restart: unless-stopped
+    profiles:
+      - with-db
+
+  # Optional: Web interface service
+  web-ui:
+    image: nginx:alpine
+    container_name: cptf-web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./web-interface:/usr/share/nginx/html:ro
+    networks:
+      - cptf-net
+    restart: unless-stopped
+    profiles:
+      - with-ui
+
+# Networks
+networks:
+  cptf-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes for data persistence
+volumes:
+  cptf-data:
+    driver: local
+  cptf-logs:
+    driver: local
+  postgres-data:
+    driver: local
