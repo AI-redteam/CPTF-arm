@@ -1,4 +1,4 @@
-# RedCloud OS ARM Edition
+# CPTF ARM Edition
 
 <div align="center">
 
@@ -17,7 +17,7 @@
 
 ## 📋 Overview
 
-RedCloud OS ARM Edition is a comprehensive setup script that brings the powerful cloud pentesting toolkit from [RedCloud OS](https://github.com/RedTeamOperations/RedCloud-OS) to ARM64 devices, including Apple Silicon Macs. This script automates the installation of 40+ cloud security testing tools optimized for AWS, Azure, GCP, and multi-cloud environments.
+CPTF ARM Edition is a comprehensive setup script that brings a powerful cloud pentesting toolkit to ARM64 devices, including Apple Silicon Macs. This script automates the installation of 40+ cloud security testing tools optimized for AWS, Azure, GCP, and multi-cloud environments.
 
 ### 🎯 Perfect For
 
@@ -259,20 +259,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - All tool authors and maintainers listed above
 - The ARM and Apple Silicon community for testing and feedback
 
-## 📮 Contact
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/redcloud-os-arm/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/redcloud-os-arm/discussions)
-- **Security**: Please report security vulnerabilities privately to security@example.com
-
-## 🎓 Learning Resources
-
-Enhance your cloud security skills:
-
-- [AWS Cloud Red Team Specialist (CARTS)](https://cyberwarfare.live/product/aws-cloud-red-team-specialist-carts/)
-- [Google Cloud Red Team Specialist (CGRTS)](https://cyberwarfare.live/product/google-cloud-red-team-specialist-cgrts/)
-- [Multi-Cloud Red Team Analyst (MCRTA)](https://cyberwarfare.live/product/multi-cloud-red-team-analyst-mcrta/)
-- [Hybrid Multi-Cloud Red Team Specialist (CHMRTS)](https://cyberwarfare.live/product/hybrid-multi-cloud-red-team-specialist-chmrts/)
 
 ---
 
