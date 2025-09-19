@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #########################################
-# CPTF OS ARM Setup Script
+# CPTF-ARM Setup Script
+# Cloud Penetration Testing Framework
 # For Apple Silicon and ARM64 devices
-# Based on RedCloud OS tool collection
 #########################################
 
 set -e
@@ -75,6 +75,8 @@ install_base_deps() {
         python3 \
         python3-pip \
         python3-venv \
+        python3-virtualenv \
+        pipx \
         nodejs \
         npm \
         golang \
@@ -111,6 +113,52 @@ install_base_deps() {
     log_success "Base dependencies installed"
 }
 
+# Helper function to install Python tools with virtual environment
+install_python_tool() {
+    local tool_path="$1"
+    local tool_name="$2"
+    local requirements_file="${3:-requirements.txt}"
+    
+    log_info "Setting up Python virtual environment for $tool_name..."
+    
+    cd "$tool_path"
+    
+    # Create virtual environment if it doesn't exist
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+    fi
+    
+    # Activate venv and install requirements
+    source venv/bin/activate
+    pip install --upgrade pip setuptools wheel
+    
+    if [ -f "$requirements_file" ]; then
+        pip install -r "$requirements_file" || {
+            log_warning "Some dependencies for $tool_name failed to install, continuing..."
+        }
+    fi
+    
+    # If setup.py exists, install the tool itself
+    if [ -f "setup.py" ]; then
+        pip install -e . || {
+            log_warning "Setup.py installation for $tool_name failed, continuing..."
+        }
+    fi
+    
+    deactivate
+    
+    # Create a wrapper script for the tool
+    local tool_wrapper="/usr/local/bin/${tool_name,,}"
+    cat > "$tool_wrapper" << EOF
+#!/bin/bash
+cd $tool_path
+source venv/bin/activate
+python3 \$@
+deactivate
+EOF
+    chmod +x "$tool_wrapper"
+}
+
 # Create directory structure
 create_directories() {
     log_info "Creating directory structure..."
@@ -137,8 +185,7 @@ install_aws_tools() {
     log_info "Installing AWS Consoler..."
     cd /opt/aws/exploitation
     git clone https://github.com/NetSPI/aws_consoler.git
-    cd aws_consoler
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/aws/exploitation/aws_consoler" "aws_consoler"
     
     # AWS Escalate
     log_info "Installing AWS Escalate..."
@@ -155,36 +202,41 @@ install_aws_tools() {
     log_info "Installing CloudJack..."
     cd /opt/aws/exploitation
     git clone https://github.com/prevade/cloudjack.git
-    cd cloudjack
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/aws/exploitation/cloudjack" "cloudjack"
     
     # CloudMapper
     log_info "Installing CloudMapper..."
     cd /opt/aws/enumeration
     git clone https://github.com/duo-labs/cloudmapper.git
-    cd cloudmapper
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/aws/enumeration/cloudmapper" "cloudmapper"
     
     # CredKing
     log_info "Installing CredKing..."
     cd /opt/aws/exploitation
     git clone https://github.com/ustayready/CredKing.git
-    cd CredKing
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/aws/exploitation/CredKing" "credking"
     
     # Endgame
     log_info "Installing Endgame..."
     cd /opt/aws/post-exploitation
     git clone https://github.com/hoodoer/endgame.git
-    cd endgame
-    pip3 install -r requirements.txt || true
+    install_python_tool "/opt/aws/post-exploitation/endgame" "endgame"
     
     # Pacu
     log_info "Installing Pacu..."
     cd /opt/aws/exploitation
     git clone https://github.com/RhinoSecurityLabs/pacu.git
-    cd pacu
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/aws/exploitation/pacu" "pacu"
+    
+    # Create Pacu launcher
+    cat > /usr/local/bin/pacu << 'EOF'
+#!/bin/bash
+cd /opt/aws/exploitation/pacu
+source venv/bin/activate
+python3 pacu.py "$@"
+deactivate
+EOF
+    chmod +x /usr/local/bin/pacu
     
     # Redboto
     log_info "Installing Redboto..."
@@ -195,8 +247,7 @@ install_aws_tools() {
     log_info "Installing weirdAAL..."
     cd /opt/aws/enumeration
     git clone https://github.com/carnal0wnage/weirdAAL.git
-    cd weirdAAL
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/aws/enumeration/weirdAAL" "weirdaal"
     
     log_success "AWS tools installed"
 }
@@ -261,8 +312,9 @@ install_azure_tools() {
     log_info "Installing Microsoft365 devicePhish..."
     cd /opt/azure/exploitation
     git clone https://github.com/optiv/Microsoft365_devicePhish.git
-    cd Microsoft365_devicePhish/Python
-    pip3 install -r requirements.txt || true
+    if [ -d "Microsoft365_devicePhish/Python" ]; then
+        install_python_tool "/opt/azure/exploitation/Microsoft365_devicePhish/Python" "devicephish"
+    fi
     
     # MS Graph PowerShell
     log_info "Installing MS Graph PowerShell..."
@@ -277,8 +329,7 @@ install_azure_tools() {
     log_info "Installing ROADtools..."
     cd /opt/azure/enumeration
     git clone https://github.com/dirkjanm/ROADtools.git
-    cd ROADtools
-    pip3 install . || true
+    install_python_tool "/opt/azure/enumeration/ROADtools" "roadtools"
     
     # TeamFiltration
     log_info "Installing TeamFiltration..."
@@ -318,8 +369,7 @@ install_gcp_tools() {
     log_info "Installing GCPBucketBrute..."
     cd /opt/gcp/enumeration
     git clone https://github.com/RhinoSecurityLabs/GCPBucketBrute.git
-    cd GCPBucketBrute
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/gcp/enumeration/GCPBucketBrute" "gcpbucketbrute"
     
     # GCP Delegation
     log_info "Installing GCP Delegation..."
@@ -379,15 +429,13 @@ install_multicloud_tools() {
     log_info "Installing Cartography..."
     cd /opt/multi-cloud/enumeration
     git clone https://github.com/lyft/cartography.git
-    cd cartography
-    pip3 install -e .
+    install_python_tool "/opt/multi-cloud/enumeration/cartography" "cartography"
     
     # CCAT
     log_info "Installing CCAT..."
     cd /opt/multi-cloud/exploitation
     git clone https://github.com/RhinoSecurityLabs/ccat.git
-    cd ccat
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/multi-cloud/exploitation/ccat" "ccat"
     
     # CloudBrute
     log_info "Installing CloudBrute..."
@@ -400,8 +448,7 @@ install_multicloud_tools() {
     log_info "Installing CloudEnum..."
     cd /opt/multi-cloud/enumeration
     git clone https://github.com/initstring/cloud_enum.git
-    cd cloud_enum
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/multi-cloud/enumeration/cloud_enum" "cloudenum"
     
     # Cloud Service Enum
     log_info "Installing Cloud Service Enum..."
@@ -433,15 +480,15 @@ install_multicloud_tools() {
     log_info "Installing Impacket..."
     cd /opt/multi-cloud/exploitation
     git clone https://github.com/fortra/impacket.git
-    cd impacket
-    pip3 install .
+    install_python_tool "/opt/multi-cloud/exploitation/impacket" "impacket"
     
     # Leonidas
     log_info "Installing Leonidas..."
     cd /opt/multi-cloud/exploitation
     git clone https://github.com/WithSecureLabs/leonidas.git
-    cd leonidas
-    pip3 install -r requirements.txt || true
+    if [ -f "leonidas/requirements.txt" ]; then
+        install_python_tool "/opt/multi-cloud/exploitation/leonidas" "leonidas"
+    fi
     
     # Modlishka
     log_info "Installing Modlishka..."
@@ -461,8 +508,7 @@ install_multicloud_tools() {
     log_info "Installing PurplePanda..."
     cd /opt/multi-cloud/enumeration
     git clone https://github.com/carlospolop/PurplePanda.git
-    cd PurplePanda
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/multi-cloud/enumeration/PurplePanda" "purplepanda"
     
     # Responder
     log_info "Installing Responder..."
@@ -473,8 +519,17 @@ install_multicloud_tools() {
     log_info "Installing ScoutSuite..."
     cd /opt/multi-cloud/enumeration
     git clone https://github.com/nccgroup/ScoutSuite.git
-    cd ScoutSuite
-    pip3 install -r requirements.txt
+    install_python_tool "/opt/multi-cloud/enumeration/ScoutSuite" "scoutsuite"
+    
+    # Create ScoutSuite launcher
+    cat > /usr/local/bin/scoutsuite << 'EOF'
+#!/bin/bash
+cd /opt/multi-cloud/enumeration/ScoutSuite
+source venv/bin/activate
+python3 scout.py "$@"
+deactivate
+EOF
+    chmod +x /usr/local/bin/scoutsuite
     
     # SkyArk
     log_info "Installing SkyArk..."
@@ -496,47 +551,44 @@ install_multicloud_tools() {
 create_startup_scripts() {
     log_info "Creating startup scripts..."
     
-    # Create a template startup script
-    cat > /usr/local/bin/redcloud-template << 'EOF'
+    # Create a generic launcher for Python tools with venv
+    cat > /usr/local/bin/cptf-launch << 'EOF'
 #!/bin/bash
-# RedCloud Tool Launcher Template
-TOOL_PATH="$1"
-TOOL_NAME="$2"
+# CPTF Tool Launcher with Virtual Environment Support
 
-if [ -z "$TOOL_PATH" ]; then
-    echo "Usage: $0 <tool_path> <tool_name>"
+TOOL_PATH="$1"
+shift
+
+if [ -z "$TOOL_PATH" ] || [ ! -d "$TOOL_PATH" ]; then
+    echo "Error: Invalid tool path"
+    echo "Usage: cptf-launch <tool_path> [tool_arguments]"
     exit 1
 fi
 
 cd "$TOOL_PATH" || exit 1
 
-echo "Starting $TOOL_NAME..."
-echo "Tool location: $TOOL_PATH"
-echo ""
-
-# Check for Python virtual environment
-if [ -f "requirements.txt" ]; then
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
-    fi
+# Check if virtual environment exists
+if [ -d "venv" ]; then
     source venv/bin/activate
-    pip3 install -r requirements.txt 2>/dev/null
+    # Try to find and run the main script
+    if [ -f "*.py" ]; then
+        python3 *.py "$@"
+    else
+        python3 "$@"
+    fi
+    deactivate
+else
+    # Run without venv (for non-Python tools)
+    if [ -f "*.sh" ]; then
+        bash *.sh "$@"
+    else
+        echo "Tool directory: $TOOL_PATH"
+        exec bash
+    fi
 fi
-
-# Start interactive shell in tool directory
-exec bash
 EOF
     
-    chmod +x /usr/local/bin/redcloud-template
-    
-    # Create individual tool launchers
-    echo '#!/bin/bash' > /usr/local/bin/pacu
-    echo 'cd /opt/aws/exploitation/pacu && python3 pacu.py' >> /usr/local/bin/pacu
-    chmod +x /usr/local/bin/pacu
-    
-    echo '#!/bin/bash' > /usr/local/bin/scoutsuite
-    echo 'cd /opt/multi-cloud/enumeration/ScoutSuite && python3 scout.py "$@"' >> /usr/local/bin/scoutsuite
-    chmod +x /usr/local/bin/scoutsuite
+    chmod +x /usr/local/bin/cptf-launch
     
     log_success "Startup scripts created"
 }
@@ -550,7 +602,7 @@ setup_aliases() {
     
     cat >> /etc/bash.bashrc << 'EOF'
 
-# RedCloud OS Aliases
+# CPTF-ARM Aliases
 alias c='clear'
 alias a='nano ~/.bash_aliases'
 alias s='source ~/.bash_aliases'
@@ -564,6 +616,10 @@ alias aws-tools='ls -la /opt/aws/'
 alias azure-tools='ls -la /opt/azure/'
 alias gcp-tools='ls -la /opt/gcp/'
 alias multi-tools='ls -la /opt/multi-cloud/'
+
+# Quick launchers for common tools
+alias run-pacu='cd /opt/aws/exploitation/pacu && source venv/bin/activate && python3 pacu.py'
+alias run-scoutsuite='cd /opt/multi-cloud/enumeration/ScoutSuite && source venv/bin/activate && python3 scout.py'
 EOF
     
     log_success "Aliases configured"
@@ -619,7 +675,8 @@ fix_permissions() {
 main() {
     clear
     echo "================================================"
-    echo "     RedCloud OS ARM Setup Script"
+    echo "     CPTF-ARM Setup Script"
+    echo "     Cloud Penetration Testing Framework"
     echo "     For Apple Silicon & ARM64 Devices"
     echo "================================================"
     echo ""
@@ -627,7 +684,8 @@ main() {
     check_sudo
     check_architecture
     
-    log_info "Starting RedCloud OS ARM installation..."
+    log_info "Starting CPTF-ARM installation..."
+    log_warning "Note: This script uses Python virtual environments to avoid system package conflicts"
     
     update_system
     install_base_deps
@@ -647,18 +705,24 @@ main() {
     
     echo ""
     echo "================================================"
-    log_success "RedCloud OS ARM installation completed!"
+    log_success "CPTF-ARM installation completed!"
     echo "================================================"
     echo ""
     echo "Next steps:"
     echo "1. Configure cloud credentials in ~/cloud-env-vars.sh"
     echo "2. Source the file: source ~/cloud-env-vars.sh"
     echo "3. Tools are installed in /opt/{aws,azure,gcp,multi-cloud}"
-    echo "4. Restart your shell to use the new aliases"
+    echo "4. Each Python tool has its own virtual environment"
+    echo "5. Use 'pacu' or 'scoutsuite' commands to launch tools"
+    echo "6. Restart your shell to use the new aliases"
     echo ""
-    echo "Default credentials for reference:"
-    echo "Username: $USER (current user)"
-    echo "Tools location: /opt/"
+    echo "Common commands:"
+    echo "  pacu              - Launch Pacu AWS exploitation framework"
+    echo "  scoutsuite        - Launch ScoutSuite multi-cloud auditor"
+    echo "  aws-tools         - List AWS tools"
+    echo "  azure-tools       - List Azure tools"
+    echo "  gcp-tools         - List GCP tools"
+    echo "  multi-tools       - List multi-cloud tools"
     echo ""
     log_warning "Some tools may require additional configuration for ARM architecture"
     log_warning "Check individual tool documentation for ARM-specific setup"
