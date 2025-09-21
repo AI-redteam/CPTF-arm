@@ -2,10 +2,10 @@
 
 <div align="center">
 
-![ARM Support](https://img.shields.io/badge/ARM64-Supported-green?style=for-the-badge&logo=arm)
-![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-Compatible-black?style=for-the-badge&logo=apple)
-![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
-![Platform](https://img.shields.io/badge/Platform-Linux%20ARM-orange?style=for-the-badge&logo=linux)
+![GitHub stars](https://img.shields.io/github/stars/ai-redteam/cptf-arm?style=social)
+![GitHub forks](https://img.shields.io/github/forks/ai-redteam/cptf-arm?style=social)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/platform-ARM64-orange.svg)
 
 **Cloud Adversary Simulation Tools for ARM Architecture**
 
@@ -19,23 +19,23 @@
 
 CPTF ARM Edition is a comprehensive setup script that brings a powerful cloud pentesting toolkit to ARM64 devices, including Apple Silicon Macs. This script automates the installation of 40+ cloud security testing tools optimized for AWS, Azure, GCP, and multi-cloud environments.
 
-### 🎯 Perfect For
+## 🎯 Perfect For
 
-- Security professionals using Apple Silicon MacBooks (M1/M2/M3)
-- Cloud penetration testers on ARM-based systems
-- Red teams requiring portable cloud testing environments
-- DevSecOps teams on ARM infrastructure
-- Researchers using Raspberry Pi or ARM servers
+- 💻 Security professionals using Apple Silicon MacBooks (M1/M2/M3)
+- ☁️ Cloud penetration testers on ARM-based systems
+- 🔴 Red teams requiring portable cloud testing environments
+- 🔧 DevSecOps teams on ARM infrastructure
+- 🔬 Researchers using Raspberry Pi or ARM servers
 
 ## ✨ Features
 
-- **🏗️ ARM-Native Installation**: Optimized for ARM64 architecture with automatic detection
-- **☁️ Complete Cloud Coverage**: Tools for AWS, Azure, GCP, and multi-cloud environments
-- **📦 40+ Security Tools**: Comprehensive suite of enumeration, exploitation, and post-exploitation tools
-- **🔧 Automated Setup**: Single script installation with dependency management
-- **🎨 Organized Structure**: Tools categorized by cloud provider and attack phase
-- **⚡ Performance Optimized**: Native ARM binaries where available, source compilation fallback
-- **🔐 Environment Templates**: Pre-configured templates for cloud credentials
+- **🏗️ ARM-Native Installation** - Optimized for ARM64 architecture with automatic detection
+- **☁️ Complete Cloud Coverage** - Tools for AWS, Azure, GCP, and multi-cloud environments
+- **📦 40+ Security Tools** - Comprehensive suite of enumeration, exploitation, and post-exploitation tools
+- **🔧 Automated Setup** - Single script installation with dependency management
+- **🎨 Organized Structure** - Tools categorized by cloud provider and attack phase
+- **⚡ Performance Optimized** - Native ARM binaries where available, source compilation fallback
+- **🔐 Environment Templates** - Pre-configured templates for cloud credentials
 
 ## 🚀 Installation
 
@@ -51,21 +51,55 @@ CPTF ARM Edition is a comprehensive setup script that brings a powerful cloud pe
 
 ```bash
 # Clone the repository
-git clone https://github.com/ai-redteam/CPTF-cloud-pentest-vm-setup-script.git
-cd CPTF-cloud-pentest-vm-setup-script
+git clone https://github.com/ai-redteam/CPTF-arm.git
+cd CPTF-arm
 
 # Make the script executable
-chmod +x CPTF-ARM.sh
+chmod +x cptf-arm.sh
 
 # Run the installation
-sudo ./CPTF-ARM.sh
+sudo ./cptf-arm.sh
 ```
+
+### ⚠️ Important: Post-Installation Steps
+
+After the script finishes, you must perform the following steps to use the tools:
+
+#### 1. Reload Your Shell Environment
+
+To enable the new commands and aliases, either close and re-open your terminal or run:
+
+```bash
+source ~/.bashrc
+```
+
+#### 2. Configure Your Cloud Credentials
+
+A template file has been created in your home directory to manage API keys.
+
+```bash
+# Edit the credentials file
+nano ~/cloud-env.sh
+```
+
+Uncomment the lines for the cloud provider you are testing and add your keys.
+
+#### 3. Load Credentials into Your Session
+
+Before running any tools, source the file to load your keys as environment variables.
+
+```bash
+source ~/cloud-env.sh
+```
+
+> **Note:** You will need to do this for every new terminal session.
 
 ## 🐳 Docker Installation (Recommended)
 
 The Docker installation provides a clean, isolated environment without modifying your host system.
 
 ### Prerequisites
+
 - Docker Engine 20.10+ with ARM64 support
 - 8GB RAM recommended (4GB minimum)
 - 15GB free disk space
@@ -112,7 +146,8 @@ docker run -it \
 ### Environment Variables
 
 Create a `.env` file for docker-compose:
-```bash
+
+```env
 AWS_ACCESS_KEY_ID=your_key
 AWS_SECRET_ACCESS_KEY=your_secret
 AZURE_CLIENT_ID=your_client_id
@@ -136,56 +171,60 @@ docker logs cptf-arm
 docker-compose down -v
 ```
 
-The Docker method provides isolation, easy cleanup, and consistent environments across different systems. All tools are pre-installed and configured in `/opt/{aws,azure,gcp,multi-cloud}/`.
+> **💡 Tip:** The Docker method provides isolation, easy cleanup, and consistent environments across different systems. All tools are pre-installed and configured in `/opt/{aws,azure,gcp,multi-cloud}/`.
 
 ## 🛠️ Tools
 
 ### AWS Tools
+
 | Tool | Description | Category |
 |------|-------------|----------|
-| [AWS CLI v2](https://aws.amazon.com/cli/) | Official AWS command-line interface | Management |
-| [Pacu](https://github.com/RhinoSecurityLabs/pacu) | AWS exploitation framework | Exploitation |
-| [CloudMapper](https://github.com/duo-labs/cloudmapper) | Analyze AWS environments | Enumeration |
-| [weirdAAL](https://github.com/carnal0wnage/weirdAAL) | AWS Attack Library | Enumeration |
-| [AWS Consoler](https://github.com/NetSPI/aws_consoler) | Convert AWS credentials to console access | Exploitation |
-| [Endgame](https://github.com/hoodoer/endgame) | AWS Pentesting Library | Post-Exploitation |
-| [CloudCopy](https://github.com/Static-Flow/CloudCopy) | Cloud bucket exploitation | Exploitation |
-| [CloudJack](https://github.com/prevade/cloudjack) | Route53/CloudFront hijacking | Exploitation |
-| [CredKing](https://github.com/ustayready/CredKing) | Password spraying | Exploitation |
-| [Redboto](https://github.com/ihamburglar/Redboto) | Red team scripts for AWS | Exploitation |
+| **AWS CLI v2** | Official AWS command-line interface | Management |
+| **Pacu** | AWS exploitation framework | Exploitation |
+| **CloudMapper** | Analyze AWS environments | Enumeration |
+| **weirdAAL** | AWS Attack Library | Enumeration |
+| **AWS Consoler** | Convert AWS credentials to console access | Exploitation |
+| **Endgame** | AWS Pentesting Library | Post-Exploitation |
+| **CloudCopy** | Cloud bucket exploitation | Exploitation |
+| **CloudJack** | Route53/CloudFront hijacking | Exploitation |
+| **CredKing** | Password spraying | Exploitation |
+| **Redboto** | Red team scripts for AWS | Exploitation |
 
 ### Azure Tools
+
 | Tool | Description | Category |
 |------|-------------|----------|
-| [Azure CLI](https://docs.microsoft.com/cli/azure/) | Official Azure command-line interface | Management |
-| [AzureHound](https://github.com/BloodHoundAD/AzureHound) | Azure AD reconnaissance | Enumeration |
-| [MicroBurst](https://github.com/NetSPI/MicroBurst) | Azure security assessment scripts | Exploitation |
-| [ROADtools](https://github.com/dirkjanm/ROADtools) | Azure AD exploration framework | Enumeration |
-| [PowerUpSQL](https://github.com/NetSPI/PowerUpSQL) | SQL Server assessment toolkit | Post-Exploitation |
-| [AADInternals](https://github.com/Gerenios/AADInternals) | Azure AD administration | Exploitation |
-| [TeamFiltration](https://github.com/Flangvik/TeamFiltration) | Teams enumeration and exfiltration | Exploitation |
-| [TokenTactics](https://github.com/rvrsh3ll/TokenTactics) | Azure token manipulation | Exploitation |
-| [MFASweep](https://github.com/dafthack/MFASweep) | MFA bypass testing | Exploitation |
+| **Azure CLI** | Official Azure command-line interface | Management |
+| **AzureHound** | Azure AD reconnaissance | Enumeration |
+| **MicroBurst** | Azure security assessment scripts | Exploitation |
+| **ROADtools** | Azure AD exploration framework | Enumeration |
+| **PowerUpSQL** | SQL Server assessment toolkit | Post-Exploitation |
+| **AADInternals** | Azure AD administration | Exploitation |
+| **TeamFiltration** | Teams enumeration and exfiltration | Exploitation |
+| **TokenTactics** | Azure token manipulation | Exploitation |
+| **MFASweep** | MFA bypass testing | Exploitation |
 
 ### GCP Tools
+
 | Tool | Description | Category |
 |------|-------------|----------|
-| [gcloud CLI](https://cloud.google.com/sdk/) | Official Google Cloud CLI | Management |
-| [GCPBucketBrute](https://github.com/RhinoSecurityLabs/GCPBucketBrute) | Enumerate GCP buckets | Enumeration |
-| [GCP IAM Privilege Escalation](https://github.com/RhinoSecurityLabs/GCP-IAM-Privilege-Escalation) | Escalate GCP IAM privileges | Post-Exploitation |
-| [Hayat](https://github.com/DenizParlak/hayat) | Google Cloud Platform Auditor | Enumeration |
-| [GCPTokenReuse](https://github.com/RedTeamOperations/GCPTokenReuse) | GCP token reuse attacks | Exploitation |
+| **gcloud CLI** | Official Google Cloud CLI | Management |
+| **GCPBucketBrute** | Enumerate GCP buckets | Enumeration |
+| **GCP IAM Privilege Escalation** | Escalate GCP IAM privileges | Post-Exploitation |
+| **Hayat** | Google Cloud Platform Auditor | Enumeration |
+| **GCPTokenReuse** | GCP token reuse attacks | Exploitation |
 
 ### Multi-Cloud Tools
+
 | Tool | Description | Category |
 |------|-------------|----------|
-| [ScoutSuite](https://github.com/nccgroup/ScoutSuite) | Multi-cloud security auditing | Enumeration |
-| [Impacket](https://github.com/fortra/impacket) | Network protocol manipulation | Exploitation |
-| [CloudEnum](https://github.com/initstring/cloud_enum) | Multi-cloud OSINT | Enumeration |
-| [Cartography](https://github.com/lyft/cartography) | Infrastructure asset inventory | Enumeration |
-| [PurplePanda](https://github.com/carlospolop/PurplePanda) | Multi-cloud privilege escalation | Post-Exploitation |
-| [Responder](https://github.com/lgandx/Responder) | LLMNR/NBT-NS/MDNS poisoner | Exploitation |
-| [Gitleaks](https://github.com/gitleaks/gitleaks) | Secret scanning | Enumeration |
+| **ScoutSuite** | Multi-cloud security auditing | Enumeration |
+| **Impacket** | Network protocol manipulation | Exploitation |
+| **CloudEnum** | Multi-cloud OSINT | Enumeration |
+| **Cartography** | Infrastructure asset inventory | Enumeration |
+| **PurplePanda** | Multi-cloud privilege escalation | Post-Exploitation |
+| **Responder** | LLMNR/NBT-NS/MDNS poisoner | Exploitation |
+| **Gitleaks** | Secret scanning | Enumeration |
 
 ## 📁 Directory Structure
 
@@ -211,70 +250,60 @@ The Docker method provides isolation, easy cleanup, and consistent environments 
 
 ## 🔧 Usage
 
-### Setting Up Cloud Credentials
-
-After installation, configure your cloud credentials:
-
-```bash
-# Edit the environment template
-nano ~/cloud-env-vars.sh
-
-# Add your credentials
-export AWS_ACCESS_KEY_ID=your_access_key
-export AWS_SECRET_ACCESS_KEY=your_secret_key
-export AZURE_CLIENT_ID=your_client_id
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-
-# Source the file
-source ~/cloud-env-vars.sh
-```
-
 ### Quick Tool Access
 
-Use the built-in aliases:
+Use the built-in launchers and aliases for fast access to common tools.
+
+```bash
+# Get a list of primary tool commands
+cptf-help
+
+# Launch specific tools directly
+pacu         # Starts the Pacu AWS exploitation framework
+scoutsuite   # Runs the ScoutSuite multi-cloud scanner
+```
+
+You can also list all installed tools for a specific cloud provider:
 
 ```bash
 # List tools by provider
-aws-tools      # List all AWS tools
-azure-tools    # List all Azure tools
-gcp-tools      # List all GCP tools
-multi-tools    # List all multi-cloud tools
-
-# Launch specific tools
-pacu           # Start Pacu framework
-scoutsuite     # Run ScoutSuite
+aws-tools
+azure-tools
+gcp-tools
+multi-tools
 ```
 
-### Running Tools
+### Running Tools Without Launchers
 
-Navigate to tool directories:
+For tools that don't have a dedicated launcher, you can run them by activating their isolated Python environment.
+
+**Example: Running CloudMapper**
 
 ```bash
-# AWS Pacu
-cd /opt/aws/exploitation/pacu
-python3 pacu.py
+# 1. Navigate to the tool's directory
+cd /opt/aws/enumeration/cloudmapper
 
-# Azure MicroBurst
-cd /opt/azure/exploitation/MicroBurst
-pwsh
-Import-Module ./MicroBurst.psm1
+# 2. Activate its virtual environment
+source venv/bin/activate
 
-# GCP Scanner
-cd /opt/gcp/enumeration/gcp_enum
-./gcp_enum.sh
+# 3. Run the tool according to its documentation
+python3 cloudmapper.py --help
+
+# 4. Deactivate the environment when finished
+deactivate
 ```
 
 ## 🧩 Compatibility
 
-### Tested Platforms
+### ✅ Tested Platforms
 
-- ✅ **macOS on Apple Silicon** (M1/M2/M3)
-- ✅ **Ubuntu 22.04 ARM64**
-- ✅ **Debian 11/12 ARM64**
-- ✅ **Kali Linux ARM64**
-- ✅ **Raspberry Pi OS (64-bit)**
+- macOS on Apple Silicon (M1/M2/M3) via Linux VM
+- Ubuntu 22.04 ARM64
+- Debian 11/12 ARM64
+- Kali Linux ARM64
+- Raspberry Pi OS (64-bit)
 
-### Known Limitations
+### ⚠️ Known Limitations
 
 - Some tools may have reduced functionality on ARM compared to x86_64
 - Binary-only tools without ARM support require manual workarounds
@@ -282,7 +311,7 @@ cd /opt/gcp/enumeration/gcp_enum
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ### How to Contribute
 
@@ -294,22 +323,24 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ### Reporting Issues
 
-Found a bug or have a suggestion? Please open an [issue](https://github.com/yourusername/redcloud-os-arm/issues) with:
+Found a bug or have a suggestion? Please [open an issue](https://github.com/ai-redteam/cptf-arm/issues) with:
+
 - Your ARM device/platform details
 - Error messages or logs
 - Steps to reproduce the issue
 
 ## 📚 Documentation
 
-- [Installation Guide](docs/INSTALL.md)
-- [Tool Documentation](docs/TOOLS.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Security Best Practices](docs/SECURITY.md)
+- [Installation Guide](docs/installation.md)
+- [Tool Documentation](docs/tools.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Security Best Practices](docs/security.md)
 
 ## 🔐 Security
 
-**⚠️ IMPORTANT**: This toolkit is designed for authorized security testing only. Users must:
+> **⚠️ IMPORTANT:** This toolkit is designed for authorized security testing only.
 
+Users must:
 - Only use these tools on systems you own or have explicit permission to test
 - Comply with all applicable laws and regulations
 - Understand that misuse may result in criminal charges
@@ -321,21 +352,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [RedCloud OS Team](https://github.com/RedTeamOperations/RedCloud-OS) for the original tool collection
-- [Parrot Security](https://www.parrotsec.org/) for the base OS inspiration
+- **RedCloud OS Team** for the original tool collection
+- **Parrot Security** for the base OS inspiration
 - All tool authors and maintainers listed above
 - The ARM and Apple Silicon community for testing and feedback
-
-
 
 ---
 
 <div align="center">
 
-**⭐ Star this repository if you find it useful!**
+### ⭐ Star this repository if you find it useful!
 
-Made with ❤️ for the ARM Security Community
+**Made with ❤️ for the ARM Security Community**
 
-[Report Bug](https://github.com/yourusername/redcloud-os-arm/issues) • [Request Feature](https://github.com/yourusername/redcloud-os-arm/issues)
+[Report Bug](https://github.com/ai-redteam/cptf-arm/issues) • [Request Feature](https://github.com/ai-redteam/cptf-arm/issues)
 
 </div>
