@@ -1,3 +1,5 @@
+**There is a current issue with docker version, will fix asap**
+
 # CPTF ARM Edition
 
 <div align="center">
